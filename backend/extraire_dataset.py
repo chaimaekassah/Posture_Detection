@@ -54,24 +54,31 @@ for categorie, label in DOSSIERS.items():
                     # Si l'oreille et l'épaule sont visibles, on calcule
                     if os.path.exists(chemin_image) and oreille is not None and epaule is not None:
                         
-                        # --- 1. CALCUL DE L'ANGLE DU COU ---
+                        # --- 1. CALCUL DE L'ANGLE ET DISTANCE DU COU ---
                         dx_cou = oreille[0] - epaule[0]
                         dy_cou = oreille[1] - epaule[1]
                         angle_cou = np.degrees(np.arctan2(abs(dx_cou), abs(dy_cou)))
+                        dist_cou = np.sqrt(dx_cou**2 + dy_cou**2) # Théorème de Pythagore
 
-                        # --- 2. CALCUL DE L'ANGLE DU DOS ---
-                        if hanche[0] != 0:
+                        # --- 2. CALCUL DE L'ANGLE ET DISTANCE DU DOS ---
+                        if hanche is not None and hanche[0] != 0:
                             dx_dos = epaule[0] - hanche[0]
                             dy_dos = epaule[1] - hanche[1]
                             angle_dos = np.degrees(np.arctan2(abs(dx_dos), abs(dy_dos)))
+                            dist_dos = np.sqrt(dx_dos**2 + dy_dos**2)
                         else:
-                            angle_dos = 0.0 # Si la hanche est cachée par l'accoudoir
+                            angle_dos = 0.0
+                            dist_dos = 0.001 # Éviter la division par zéro pour le ratio
 
-                        # Enregistrer les DEUX caractéristiques d'un coup (Une seule ligne par image !)
+                        # --- 3. NOUVEAU : CALCUL DU RATIO DE POSTURE ---
+                        ratio_posture = dist_cou / dist_dos if dist_dos > 0 else 0.0
+
+                        # Enregistrer les TROIS caractéristiques
                         donnees_posture.append({
                             "chemin_relatif": os.path.relpath(chemin_image, DATASET_PATH),
                             "angle_cou": angle_cou,
                             "angle_dos": angle_dos,
+                            "ratio_posture": ratio_posture,
                             "label": label
                         })
 
@@ -82,6 +89,6 @@ if donnees_posture:
     os.makedirs("backend", exist_ok=True)
     df.to_csv("backend/donnees_calibrees.csv", index=False)
     print("\n✅ Extraction terminée avec succès !")
-    print(f"📊 Le fichier CSV 'backend/donnees_calibrees.csv' contient désormais {len(df)} lignes avec les angles du cou et du dos.")
+    print(f"📊 Le fichier CSV 'backend/donnees_calibrees.csv' contient désormais {len(df)} lignes avec 3 caractéristiques (Cou, Dos, Ratio).")
 else:
     print("\n❌ Échec : Aucune coordonnée n'a pu être extraite. Vérifie la visibilité des corps sur les images.")

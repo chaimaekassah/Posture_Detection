@@ -1,48 +1,58 @@
 import os
 import pickle
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
 
-# 1. Charger le fichier CSV contenant les deux angles
+# 1. Charger le fichier CSV mis à jour
 csv_path = "backend/donnees_calibrees.csv"
 
 if not os.path.exists(csv_path):
-    print(f"❌ Impossible de trouver le fichier {csv_path}. Lance extraire_dataset.py d'abord.")
-else:
-    df = pd.read_csv(csv_path)
-    print(f"📊 Données chargées : {len(df)} lignes disponibles.")
+    print(f"❌ Impossible de trouver le fichier {csv_path}.")
+    exit()
 
-    # 2. SÉLECTION DES DEUX VARIABLES (Cou + Dos)
-    X = df[['angle_cou', 'angle_dos']]
-    y = df['label']
+df = pd.read_csv(csv_path)
+print(f"📊 Données chargées : {len(df)} lignes.")
 
-    # 3. Séparation Entraînement (80%) / Test (20%)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# 2. SÉLECTION DES 3 VARIABLES (Cou + Dos + Ratio)
+X = df[['angle_cou', 'angle_dos', 'ratio_posture']]
+y = df['label']
 
-    print(f"🧠 Entraînement multi-variable sur {len(X_train)} images...")
-    print(f"🧪 Test de validation sur {len(X_test)} images...")
+# 3. Séparation Entraînement / Test
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Un excellent compromis pour stabiliser et maximiser la précision
-    clf = RandomForestClassifier(n_estimators=200, max_depth=7, min_samples_split=4, random_state=42)
-    clf.fit(X_train, y_train)
+print("⏳ Lancement de l'Auto-Optimisation (GridSearch)... (Cela peut prendre quelques secondes)")
 
-    # 5. Évaluation du nouveau modèle
-    y_pred = clf.predict(X_test)
-    precision = accuracy_score(y_test, y_pred) * 100
-    
-    print("\n=============================================")
-    print(f"🎯 NOUVELLE PRÉCISION DU MODÈLE : {precision:.2f}%")
-    print("=============================================\n")
+# 4. Définir la grille des paramètres à tester (36 combinaisons différentes !)
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [5, 7, 10, 15],
+    'min_samples_split': [2, 4, 6]
+}
 
-    # Afficher le rapport détaillé pour le jury (Precision, Recall par classe)
-    print("📋 Rapport de classification détaillé :")
-    print(classification_report(y_test, y_pred, target_names=['Mauvaise Posture', 'Bonne Posture']))
+# 5. Création et exécution du chercheur d'hyperparamètres
+rf = RandomForestClassifier(random_state=42)
+grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+grid_search.fit(X_train, y_train)
 
-    # 6. Sauvegarder le nouveau cerveau robuste
-    modele_path = "backend/modele_posture.pkl"
-    with open(modele_path, 'wb') as f:
-        pickle.dump(clf, f)
-        
-    print(f"💾 Modèle Random Forest sauvegardé avec succès dans '{modele_path}' !")
+# Récupération du MEILLEUR modèle trouvé
+meilleur_modele = grid_search.best_estimator_
+
+print("\n🏆 OPTIMISATION TERMINÉE !")
+print(f"Meilleurs paramètres trouvés par l'IA : {grid_search.best_params_}")
+
+# 6. Évaluation finale
+y_pred = meilleur_modele.predict(X_test)
+precision = accuracy_score(y_test, y_pred) * 100
+
+print("\n=============================================")
+print(f"🚀 PRÉCISION MAXIMALE ATTEINTE : {precision:.2f}%")
+print("=============================================\n")
+print(classification_report(y_test, y_pred, target_names=['Mauvaise Posture', 'Bonne Posture']))
+
+# 7. Sauvegarder ce super-modèle
+modele_path = "backend/modele_posture.pkl"
+with open(modele_path, 'wb') as f:
+    pickle.dump(meilleur_modele, f)
+print(f"💾 Modèle d'élite sauvegardé dans '{modele_path}' !")
