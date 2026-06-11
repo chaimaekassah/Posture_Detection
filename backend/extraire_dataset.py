@@ -58,7 +58,7 @@ for categorie, label in DOSSIERS.items():
                         dx_cou = oreille[0] - epaule[0]
                         dy_cou = oreille[1] - epaule[1]
                         angle_cou = np.degrees(np.arctan2(abs(dx_cou), abs(dy_cou)))
-                        dist_cou = np.sqrt(dx_cou**2 + dy_cou**2) # Théorème de Pythagore
+                        dist_cou = np.sqrt(dx_cou**2 + dy_cou**2)
 
                         # --- 2. CALCUL DE L'ANGLE ET DISTANCE DU DOS ---
                         if hanche is not None and hanche[0] != 0:
@@ -68,17 +68,30 @@ for categorie, label in DOSSIERS.items():
                             dist_dos = np.sqrt(dx_dos**2 + dy_dos**2)
                         else:
                             angle_dos = 0.0
-                            dist_dos = 0.001 # Éviter la division par zéro pour le ratio
+                            dist_dos = 0.001 
 
-                        # --- 3. NOUVEAU : CALCUL DU RATIO DE POSTURE ---
+                        # --- 3. CALCUL DU RATIO DE POSTURE ---
                         ratio_posture = dist_cou / dist_dos if dist_dos > 0 else 0.0
 
-                        # Enregistrer les TROIS caractéristiques
+                        # --- 4. NOUVEAU : CALCUL DE LA DISTANCE INTER-ÉPAULES ---
+                        # Épaule gauche (index 5) et Épaule droite (index 6)
+                        epaule_gauche = points[5]
+                        epaule_droite = points[6]
+                        
+                        if epaule_gauche[0] != 0 and epaule_droite[0] != 0:
+                            dx_epaules = epaule_gauche[0] - epaule_droite[0]
+                            dy_epaules = epaule_gauche[1] - epaule_droite[1]
+                            distance_epaules = np.sqrt(dx_epaules**2 + dy_epaules**2)
+                        else:
+                            distance_epaules = 0.0 # Si une épaule est cachée
+
+                        # Enregistrer les QUATRE caractéristiques
                         donnees_posture.append({
                             "chemin_relatif": os.path.relpath(chemin_image, DATASET_PATH),
                             "angle_cou": angle_cou,
                             "angle_dos": angle_dos,
                             "ratio_posture": ratio_posture,
+                            "distance_epaules": distance_epaules, # La nouvelle variable est là !
                             "label": label
                         })
 
@@ -89,6 +102,6 @@ if donnees_posture:
     os.makedirs("backend", exist_ok=True)
     df.to_csv("backend/donnees_calibrees.csv", index=False)
     print("\n✅ Extraction terminée avec succès !")
-    print(f"📊 Le fichier CSV 'backend/donnees_calibrees.csv' contient désormais {len(df)} lignes avec 3 caractéristiques (Cou, Dos, Ratio).")
+    print(f"📊 Le fichier CSV 'backend/donnees_calibrees.csv' contient désormais {len(df)} lignes avec 4 caractéristiques (Cou, Dos, Ratio, Epaules).")
 else:
-    print("\n❌ Échec : Aucune coordonnée n'a pu être extraite. Vérifie la visibilité des corps sur les images.")
+    print("\n❌ Échec : Aucune coordonnée n'a pu être extraite.")

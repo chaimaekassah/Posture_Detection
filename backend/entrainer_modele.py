@@ -2,8 +2,8 @@ import os
 import pickle
 import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
+import xgboost as xgb  # <-- L'algorithme des champions !
 
 # 1. Charger le fichier CSV mis à jour
 csv_path = "backend/donnees_calibrees.csv"
@@ -15,25 +15,25 @@ if not os.path.exists(csv_path):
 df = pd.read_csv(csv_path)
 print(f"📊 Données chargées : {len(df)} lignes.")
 
-# 2. SÉLECTION DES 3 VARIABLES (Cou + Dos + Ratio)
-X = df[['angle_cou', 'angle_dos', 'ratio_posture']]
+# 2. SÉLECTION DES 4 VARIABLES (Cou + Dos + Ratio + Épaules)
+X = df[['angle_cou', 'angle_dos', 'ratio_posture', 'distance_epaules']]
 y = df['label']
 
 # 3. Séparation Entraînement / Test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-print("⏳ Lancement de l'Auto-Optimisation (GridSearch)... (Cela peut prendre quelques secondes)")
+print("⏳ Lancement de l'Auto-Optimisation XGBoost (GridSearch)...")
 
-# 4. Définir la grille des paramètres à tester (36 combinaisons différentes !)
+# 4. Définir la grille des paramètres spécifique à XGBoost
 param_grid = {
     'n_estimators': [100, 200, 300],
-    'max_depth': [5, 7, 10, 15],
-    'min_samples_split': [2, 4, 6]
+    'max_depth': [3, 5, 7],
+    'learning_rate': [0.01, 0.05, 0.1] # Vitesse à laquelle l'IA corrige ses erreurs
 }
 
-# 5. Création et exécution du chercheur d'hyperparamètres
-rf = RandomForestClassifier(random_state=42)
-grid_search = GridSearchCV(estimator=rf, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1)
+# 5. Création et exécution du modèle XGBoost
+modele_xgb = xgb.XGBClassifier(random_state=42, eval_metric='logloss')
+grid_search = GridSearchCV(estimator=modele_xgb, param_grid=param_grid, cv=5, scoring='accuracy', n_jobs=-1)
 grid_search.fit(X_train, y_train)
 
 # Récupération du MEILLEUR modèle trouvé
@@ -47,12 +47,12 @@ y_pred = meilleur_modele.predict(X_test)
 precision = accuracy_score(y_test, y_pred) * 100
 
 print("\n=============================================")
-print(f"🚀 PRÉCISION MAXIMALE ATTEINTE : {precision:.2f}%")
+print(f"🚀 PRÉCISION MAXIMALE ATTEINTE (XGBoost) : {precision:.2f}%")
 print("=============================================\n")
 print(classification_report(y_test, y_pred, target_names=['Mauvaise Posture', 'Bonne Posture']))
 
-# 7. Sauvegarder ce super-modèle
+# 7. Sauvegarder ce super-modèle (compatible avec ton app_posture_ia.py)
 modele_path = "backend/modele_posture.pkl"
 with open(modele_path, 'wb') as f:
     pickle.dump(meilleur_modele, f)
-print(f"💾 Modèle d'élite sauvegardé dans '{modele_path}' !")
+print(f"💾 Modèle d'élite XGBoost sauvegardé dans '{modele_path}' !")
